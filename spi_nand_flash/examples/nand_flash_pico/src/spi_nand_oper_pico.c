@@ -30,7 +30,6 @@ esp_err_t spi_nand_execute_transaction(spi_nand_flash_device_t *handle, spi_nand
 {
     spi_inst_t *spi = handle->config.spi;
     uint8_t tx_buf[16];
-    uint8_t rx_buf[16];
     size_t tx_idx = 0;
 
     // Build the command + address packet

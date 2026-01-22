@@ -48,7 +48,8 @@ static esp_err_t wait_for_ready(spi_nand_flash_device_t *dev, uint32_t expected_
         }
 
         if (expected_operation_time_us >= ROM_WAIT_THRESHOLD_US) {
-            sleep_ms(1);
+            // Use 100us delay for better responsiveness while still yielding CPU
+            busy_wait_us_32(100);
         }
     }
 
@@ -276,6 +277,7 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
 {
     NAND_LOGD(TAG, "copy, src=%"PRIu32", dst=%"PRIu32"", src, dst);
     esp_err_t ret = ESP_OK;
+    uint8_t *copy_buf = NULL;
 
     uint8_t status;
     GOTO_ON_ERROR(read_page_and_wait(handle, src, &status), fail);
@@ -293,7 +295,7 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
 
     if (src_column_addr != dst_column_addr) {
         // In a 2 plane structure of the flash, if the pages are not on the same plane, the data must be copied through RAM.
-        uint8_t *copy_buf = malloc(handle->chip.page_size);
+        copy_buf = malloc(handle->chip.page_size);
         if (!copy_buf) {
             ret = ESP_ERR_NO_MEM;
             goto fail;
@@ -315,6 +317,7 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
             return ESP_ERR_NOT_FINISHED;
         }
         free(copy_buf);
+        copy_buf = NULL;
     }
 
     GOTO_ON_ERROR(program_execute_and_wait(handle, dst, &status), fail);
@@ -326,6 +329,7 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
     return ret;
 
 fail:
+    free(copy_buf);
     NAND_LOGE(TAG, "Error in nand_copy %d", ret);
     return ret;
 }
